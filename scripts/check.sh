@@ -51,24 +51,26 @@ esac
 
 terraform init -upgrade > /dev/null 2>&1
 
+SCHEMA_JSON=$(terraform providers schema -json)
+
 if [ -n "$PROVIDER" ]; then
-  provider_key=$(terraform providers schema -json | jq -r '.provider_schemas | keys[]' | grep "/${PROVIDER}$" || true)
+  provider_key=$(echo "$SCHEMA_JSON" | jq -r '.provider_schemas | keys[]' | grep "/${PROVIDER}$" || true)
   if [ -n "$provider_key" ]; then
-    terraform providers schema -json | jq -r "
-      .provider_schemas.\"${provider_key}\".${SCHEMA_KEY} // {} |
+    echo "$SCHEMA_JSON" | jq -r --arg pk "$provider_key" --arg sk "$SCHEMA_KEY" --arg prov "$PROVIDER" '
+      .provider_schemas[$pk][$sk] // {} |
       if . == {} then [] else keys | sort end |
-      {\"$PROVIDER\": .}
-    "
+      {($prov): .}
+    '
   else
-    echo "{\"$PROVIDER\": []}"
+    jq -n --arg prov "$PROVIDER" '{($prov): []}'
   fi
 else
-  terraform providers schema -json | jq -r "
+  echo "$SCHEMA_JSON" | jq -r --arg sk "$SCHEMA_KEY" '
     .provider_schemas | to_entries |
     map({
-      key: (.key | split(\"/\")[-1]),
-      value: ((.value.${SCHEMA_KEY} // {}) | if . == {} then [] else keys | sort end)
+      key: (.key | split("/")[-1]),
+      value: ((.value[$sk] // {}) | if . == {} then [] else keys | sort end)
     }) |
     from_entries
-  "
+  '
 fi
