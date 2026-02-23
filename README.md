@@ -2,9 +2,19 @@
 
 Agent skill for identifying Terraform provider support for resources, data sources, actions, list resources, ephemeral resources, and functions.
 
+**Links:** [skills.sh](https://skills.sh/quixoticmonk/terraform-schema-inspector-skill/terraform-schema-inspector-skill) | [GitHub](https://github.com/quixoticmonk/terraform-schema-inspector-skill) | [Security Audit](https://skills.sh/quixoticmonk/terraform-schema-inspector-skill/terraform-schema-inspector-skill/security/agent-trust-hub)
+
 ## Installation
 
-Copy this directory to your agent's skills folder or install via your agent's skill management system.
+**Via skills library:**
+
+```bash
+npx skills add quixoticmonk/terraform-schema-inspector-skill
+```
+
+**Manual installation:**
+
+Copy this directory to your agent's skills folder.
 
 ## Usage
 
@@ -25,6 +35,15 @@ The agent will:
 
 - Terraform CLI
 - jq (JSON processor)
+
+## Supported Capability Types
+
+- `resources` - Standard managed resources
+- `data-sources` - Read-only data sources
+- `actions` - Imperative lifecycle actions (Terraform 1.14+)
+- `ephemeral` - Ephemeral resources for credentials/tokens (Terraform 1.10+)
+- `functions` - Provider-specific functions
+- `list` - List resource capabilities
 
 ## How It Works
 
