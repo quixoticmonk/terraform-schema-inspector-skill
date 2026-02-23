@@ -1,6 +1,6 @@
 ---
 name: terraform-schema-inspector-skill
-description: Identify Terraform provider support for resources, data sources, actions, list resources, ephemeral resources, and functions. Use when checking provider capabilities or determining what's available.
+description: Identify Terraform provider support for resources, data sources, actions, list resources, ephemeral resources, and functions. Use when checking provider capabilities, asking "what resources does X provider support", "does provider Y have actions", or querying specific provider features.
 license: MIT
 compatibility: Requires Terraform CLI and jq
 metadata:
@@ -45,7 +45,12 @@ When a user asks about provider capabilities:
    scripts/check.sh <capability_type> <provider_name>
    ```
 
-4. **Clean up** (if you created the provider file)
+4. **Verify execution**
+   - Check the script succeeded (exit code 0)
+   - Validate output is valid JSON
+   - Common failures: missing `terraform` CLI, `jq` not installed, provider initialization errors, invalid provider names
+
+5. **Clean up** (if you created the provider file)
    - Remove the temporary `providers.tf` file
    - Remove `.terraform/` directory and `.terraform.lock.hcl`
 
