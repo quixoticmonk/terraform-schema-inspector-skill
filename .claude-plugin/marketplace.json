@@ -1,0 +1,28 @@
+{
+  "name": "quixoticmonk",
+  "owner": {
+    "name": "quixoticmonk"
+  },
+  "version": "0.1.0",
+  "metadata": {
+    "description": "Identify Terraform provider support for resources, data sources, actions, list resources, ephemeral resources, and functions.",
+    "repository": "https://github.com/quixoticmonk/terraform-schema-inspector-skill",
+    "license": "MIT"
+  },
+  "plugins": [
+    {
+      "name": "terraform-schema-inspector-skill",
+      "description": "Identify Terraform provider support for resources, data sources, actions, list resources, ephemeral resources, and functions. Use when checking provider capabilities or determining what's available.",
+      "source": "./",
+      "category": "development",
+      "keywords": [
+        "terraform",
+        "infrastructure-as-code",
+        "provider",
+        "schema",
+        "capabilities"
+      ],
+      "version": "0.1.0"
+    }
+  ]
+}
