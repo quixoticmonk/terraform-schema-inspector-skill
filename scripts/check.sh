@@ -18,18 +18,21 @@ if ! command -v jq &> /dev/null; then
   exit 1
 fi
 
-# Create minimal provider config if none exists
-if [ ! -f "*.tf" ] && [ ! -f ".terraform.lock.hcl" ]; then
-  cat > _temp_provider.tf <<EOF
-terraform {
-  required_providers {
-    ${PROVIDER:-aws} = {
-      source = "hashicorp/${PROVIDER:-aws}"
-    }
-  }
-}
-EOF
-  CLEANUP_TEMP=1
+# Check for Terraform configuration
+TF_FILES=$(ls *.tf 2>/dev/null | wc -l | tr -d ' ')
+if [ "$TF_FILES" -eq 0 ] && [ ! -f ".terraform.lock.hcl" ]; then
+  echo "Error: No Terraform configuration found." >&2
+  echo "Please create a providers.tf file with the provider configuration." >&2
+  echo "" >&2
+  echo "Example for AWS:" >&2
+  echo "  terraform {" >&2
+  echo "    required_providers {" >&2
+  echo "      aws = {" >&2
+  echo "        source = \"hashicorp/aws\"" >&2
+  echo "      }" >&2
+  echo "    }" >&2
+  echo "  }" >&2
+  exit 1
 fi
 
 # Map type to schema key
@@ -49,21 +52,23 @@ esac
 terraform init -upgrade > /dev/null 2>&1
 
 if [ -n "$PROVIDER" ]; then
-  provider_key=$(terraform providers schema -json | jq -r '.provider_schemas | keys[]' | grep "/${PROVIDER}$")
+  provider_key=$(terraform providers schema -json | jq -r '.provider_schemas | keys[]' | grep "/${PROVIDER}$" || true)
   if [ -n "$provider_key" ]; then
-    terraform providers schema -json | jq -r "{\"$PROVIDER\": (.provider_schemas.\"${provider_key}\" | .${SCHEMA_KEY} // {} | keys | sort)}"
+    terraform providers schema -json | jq -r "
+      .provider_schemas.\"${provider_key}\".${SCHEMA_KEY} // {} |
+      if . == {} then [] else keys | sort end |
+      {\"$PROVIDER\": .}
+    "
   else
     echo "{\"$PROVIDER\": []}"
   fi
 else
   terraform providers schema -json | jq -r "
     .provider_schemas | to_entries |
-    map({key: (.key | split(\"/\")[-1]), value: (.value.${SCHEMA_KEY} // {} | keys | sort)}) |
+    map({
+      key: (.key | split(\"/\")[-1]),
+      value: ((.value.${SCHEMA_KEY} // {}) | if . == {} then [] else keys | sort end)
+    }) |
     from_entries
   "
-fi
-
-# Cleanup temp file if created
-if [ -n "$CLEANUP_TEMP" ]; then
-  rm -f _temp_provider.tf
 fi

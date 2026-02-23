@@ -18,38 +18,82 @@ Identify which capabilities a Terraform provider supports:
 - **Ephemeral Resources**: Temporary resources for credentials/tokens
 - **Functions**: Provider-specific functions
 
-## Usage
+## Workflow
 
-Run the extraction script with the capability type and optional provider:
+When a user asks about provider capabilities:
 
+1. **Check for existing Terraform configuration**
+   - Look for `*.tf` files or `.terraform.lock.hcl` in the current directory
+   - If found, skip to step 3
+
+2. **Create provider configuration** (if needed)
+   - Create a minimal `providers.tf` file with the requested provider
+   - Example for AWS:
+     ```hcl
+     terraform {
+       required_providers {
+         aws = {
+           source = "hashicorp/aws"
+         }
+       }
+     }
+     ```
+   - For other providers, replace `aws` with the provider name (e.g., `azurerm`, `google`, `kubernetes`)
+
+3. **Run the inspection script**
+   ```bash
+   scripts/check.sh <capability_type> <provider_name>
+   ```
+
+4. **Clean up** (if you created the provider file)
+   - Remove the temporary `providers.tf` file
+   - Remove `.terraform/` directory and `.terraform.lock.hcl`
+
+## Capability Types
+
+- `resources` - Standard managed resources
+- `data-sources` - Read-only data sources
+- `actions` - Imperative lifecycle actions
+- `list` - List resource capabilities
+- `ephemeral` - Ephemeral resources (credentials, tokens)
+- `functions` - Provider-specific functions
+
+## Examples
+
+### Check AWS ephemeral resources
 ```bash
-# Check all providers for resources
-scripts/check.sh resources
-
-# Check specific provider for data sources
-scripts/check.sh data-sources aws
-
-# Check for actions
-scripts/check.sh actions azurerm
-
-# Check for list resources
-scripts/check.sh list
-
-# Check for ephemeral resources
-scripts/check.sh ephemeral
-
-# Check for functions
-scripts/check.sh functions
+# Create providers.tf first, then:
+scripts/check.sh ephemeral aws
 ```
 
-## Output
+### Check all providers for actions
+```bash
+# If multiple providers configured:
+scripts/check.sh actions
+```
 
-Returns JSON mapping providers to their supported resources:
+### Check Azure data sources
+```bash
+# Create providers.tf with azurerm, then:
+scripts/check.sh data-sources azurerm
+```
+
+## Output Format
+
+Returns JSON mapping providers to their supported capabilities:
 
 ```json
 {
-  "aws": ["aws_instance", "aws_s3_bucket", "aws_lambda_function"],
-  "azurerm": ["azurerm_resource_group", "azurerm_virtual_network"]
+  "aws": [
+    "aws_cognito_identity_openid_token_for_developer_identity",
+    "aws_ecr_authorization_token",
+    "aws_eks_cluster_auth",
+    "aws_kms_secrets",
+    "aws_lambda_invocation",
+    "aws_secretsmanager_random_password",
+    "aws_secretsmanager_secret_version",
+    "aws_ssm_parameter"
+  ]
 }
 ```
 
@@ -58,4 +102,8 @@ Returns JSON mapping providers to their supported resources:
 - Terraform CLI installed
 - jq (JSON processor)
 
-The script auto-generates a minimal provider configuration if none exists.
+## Notes
+
+- The script requires a Terraform configuration to inspect provider schemas
+- Always clean up temporary files after inspection
+- Provider schemas are fetched during `terraform init`
