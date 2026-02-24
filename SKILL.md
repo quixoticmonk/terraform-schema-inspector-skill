@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires Terraform CLI and jq
 metadata:
   author: quixoticmonk
-  version: "0.1.0"
+  version: "0.2.0"
 ---
 
 # Terraform Schema Inspector
@@ -53,6 +53,18 @@ When a user asks about provider capabilities:
 5. **Clean up** (if you created the provider file)
    - Remove the temporary `providers.tf` file
    - Remove `.terraform/` directory and `.terraform.lock.hcl`
+
+## Security
+
+The script implements security hardening to prevent command injection:
+
+- **Input validation**: Provider names restricted to alphanumeric, hyphens, and underscores
+- **Safe string handling**: All provider operations use jq's `--arg` to prevent injection
+
+**Security considerations:**
+- Only run on trusted Terraform configurations
+- Review `.tf` files before running `terraform init`
+- Provider binaries are downloaded from configured registries during `terraform init`
 
 ## Capability Types
 

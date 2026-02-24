@@ -7,6 +7,23 @@ set -e
 TYPE=${1:-resources}
 PROVIDER=$2
 
+# Validate capability type early
+case "$TYPE" in
+  resources|data-sources|actions|list|ephemeral|functions) ;;
+  *)
+    echo "Usage: $0 [resources|data-sources|actions|list|ephemeral|functions] [provider_name]" >&2
+    exit 1
+    ;;
+esac
+
+# Validate provider name (alphanumeric, hyphens, underscores only)
+if [ -n "$PROVIDER" ]; then
+  if ! [[ "$PROVIDER" =~ ^[a-zA-Z0-9_-]+$ ]]; then
+    echo "Error: Invalid provider name. Only alphanumeric characters, hyphens, and underscores allowed." >&2
+    exit 1
+  fi
+fi
+
 # Check dependencies
 if ! command -v terraform &> /dev/null; then
   echo "Error: terraform CLI not found. Install from https://www.terraform.io/downloads" >&2
@@ -43,18 +60,19 @@ case "$TYPE" in
   list) SCHEMA_KEY="list_resource_schemas" ;;
   ephemeral) SCHEMA_KEY="ephemeral_resource_schemas" ;;
   functions) SCHEMA_KEY="functions" ;;
-  *)
-    echo "Usage: $0 [resources|data-sources|actions|list|ephemeral|functions] [provider_name]" >&2
-    exit 1
-    ;;
 esac
 
 terraform init -upgrade > /dev/null 2>&1
 
+# Capture schema output securely
 SCHEMA_JSON=$(terraform providers schema -json)
 
 if [ -n "$PROVIDER" ]; then
-  provider_key=$(echo "$SCHEMA_JSON" | jq -r '.provider_schemas | keys[]' | grep "/${PROVIDER}$" || true)
+  # Use jq for all string operations to prevent injection
+  provider_key=$(echo "$SCHEMA_JSON" | jq -r --arg prov "$PROVIDER" '
+    .provider_schemas | keys[] | select(endswith("/" + $prov))
+  ' || true)
+  
   if [ -n "$provider_key" ]; then
     echo "$SCHEMA_JSON" | jq -r --arg pk "$provider_key" --arg sk "$SCHEMA_KEY" --arg prov "$PROVIDER" '
       .provider_schemas[$pk][$sk] // {} |
