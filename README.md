@@ -47,7 +47,12 @@ The agent will:
 
 ## How It Works
 
-The skill uses `terraform providers schema -json` to extract provider capabilities. The agent creates a minimal provider configuration, initializes Terraform to download the provider schema, then queries it for the requested capability type.
+The skill uses `terraform providers schema -json` to extract provider capabilities. The agent:
+1. Uses the Terraform MCP server to determine the correct provider namespace and version
+2. Creates a minimal provider configuration in a temporary directory
+3. Runs the `check.sh` script which initializes Terraform and extracts the schema
+4. Queries the schema for the requested capability type
+5. Cleans up temporary files
 
 ## Structure
 

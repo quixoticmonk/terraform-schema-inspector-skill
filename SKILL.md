@@ -20,39 +20,53 @@ Identify which capabilities a Terraform provider supports:
 
 ## Workflow
 
+**CRITICAL: Always use the `scripts/check.sh` script - never manually run terraform commands.**
+
 When a user asks about provider capabilities:
 
-1. **Check for existing Terraform configuration**
-   - Look for `*.tf` files or `.terraform.lock.hcl` in the current directory
-   - If found, skip to step 3
+1. **Prepare working directory**
+   - Create a temporary directory (e.g., `/tmp/tf-inspect-$$`)
+   - Change to that directory
 
-2. **Create provider configuration** (if needed)
-   - Create a minimal `providers.tf` file with the requested provider
-   - Example for AWS:
+2. **Determine provider source**
+   - Use `get_latest_provider_version` tool to find the correct namespace and version
+   - Common namespaces: `hashicorp` (aws, google, azurerm), `integrations` (github), `oracle` (oci), etc.
+
+3. **Create provider configuration**
+   - Create a minimal `main.tf` file with the provider source from step 2:
      ```hcl
      terraform {
        required_providers {
-         aws = {
-           source = "hashicorp/aws"
+         <provider> = {
+           source = "<namespace>/<provider>"
+           version = "~> <version>"
          }
        }
      }
+     
+     provider "<provider>" {}
      ```
-   - For other providers, replace `aws` with the provider name (e.g., `azurerm`, `google`, `kubernetes`)
+   - Example for AWS: `source = "hashicorp/aws"`
+   - Example for GitHub: `source = "integrations/github"`
 
-3. **Run the inspection script**
+4. **Run the inspection script**
    ```bash
-   scripts/check.sh <capability_type> <provider_name>
+   /path/to/skill/scripts/check.sh <capability_type> <provider_name>
    ```
+   
+   The script will:
+   - Validate inputs and check dependencies
+   - Run `terraform init` automatically
+   - Extract the schema using `terraform providers schema -json`
+   - Filter and format the output as JSON
 
-4. **Verify execution**
-   - Check the script succeeded (exit code 0)
-   - Validate output is valid JSON
-   - Common failures: missing `terraform` CLI, `jq` not installed, provider initialization errors, invalid provider names
+5. **Present results**
+   - Display the JSON output to the user
+   - Interpret empty arrays as "no capabilities of this type"
 
-5. **Clean up** (if you created the provider file)
-   - Remove the temporary `providers.tf` file
-   - Remove `.terraform/` directory and `.terraform.lock.hcl`
+6. **Clean up**
+   - Remove the temporary directory and all contents
+   - Use `rm -rf /tmp/tf-inspect-*` or similar
 
 ## Security
 
@@ -77,22 +91,26 @@ The script implements security hardening to prevent command injection:
 
 ## Examples
 
-### Check AWS ephemeral resources
+### Check Google provider for actions
 ```bash
-# Create providers.tf first, then:
-scripts/check.sh ephemeral aws
+# In temporary directory with provider config:
+/path/to/skill/scripts/check.sh actions google
 ```
 
-### Check all providers for actions
+### Check AWS ephemeral resources
 ```bash
-# If multiple providers configured:
-scripts/check.sh actions
+/path/to/skill/scripts/check.sh ephemeral aws
 ```
 
 ### Check Azure data sources
 ```bash
-# Create providers.tf with azurerm, then:
-scripts/check.sh data-sources azurerm
+/path/to/skill/scripts/check.sh data-sources azurerm
+```
+
+### Check all configured providers for a capability
+```bash
+# Omit provider name to check all:
+/path/to/skill/scripts/check.sh functions
 ```
 
 ## Output Format
@@ -121,6 +139,8 @@ Returns JSON mapping providers to their supported capabilities:
 
 ## Notes
 
-- The script requires a Terraform configuration to inspect provider schemas
-- Always clean up temporary files after inspection
-- Provider schemas are fetched during `terraform init`
+- **Always use the `check.sh` script** - it handles initialization, validation, and cleanup automatically
+- The script requires a Terraform configuration file in the working directory
+- Work in a temporary directory to avoid polluting the user's workspace
+- Provider schemas are fetched during `terraform init` (handled by the script)
+- Empty arrays in output mean the provider has no capabilities of that type
