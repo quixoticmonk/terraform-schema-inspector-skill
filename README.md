@@ -36,6 +36,8 @@ The agent will:
 - Terraform CLI
 - jq (JSON processor)
 
+**Note:** The agent handles provider initialization. The script only reads existing schema data.
+
 ## Supported Capability Types
 
 - `resources` - Standard managed resources
@@ -50,9 +52,17 @@ The agent will:
 The skill uses `terraform providers schema -json` to extract provider capabilities. The agent:
 1. Uses the Terraform MCP server to determine the correct provider namespace and version
 2. Creates a minimal provider configuration in a temporary directory
-3. Runs the `check.sh` script which initializes Terraform and extracts the schema
-4. Queries the schema for the requested capability type
-5. Cleans up temporary files
+3. Runs `terraform init` to download provider binaries (visible to user)
+4. Calls the `check.sh` script which reads the schema in read-only mode
+5. Queries the schema for the requested capability type
+6. Cleans up temporary files
+
+**Security Design:**
+- Agent handles all write operations (config creation, terraform init)
+- Script operates in read-only mode (only queries existing schema)
+- User sees provider downloads during initialization
+- No external downloads occur within the skill script
+- Input validation prevents command injection
 
 ## Structure
 

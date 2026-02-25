@@ -1,13 +1,16 @@
 #!/bin/bash
-# Extract Terraform provider capabilities
+# Read Terraform provider schema capabilities
 # Usage: ./check.sh [resources|data-sources|actions|list|ephemeral|functions] [provider_name]
+#
+# IMPORTANT: This script expects terraform to already be initialized.
+# The agent should run 'terraform init' before calling this script.
 
 set -e
 
 TYPE=${1:-resources}
 PROVIDER=$2
 
-# Validate capability type early
+# Validate capability type
 case "$TYPE" in
   resources|data-sources|actions|list|ephemeral|functions) ;;
   *)
@@ -16,39 +19,23 @@ case "$TYPE" in
     ;;
 esac
 
-# Validate provider name (alphanumeric, hyphens, underscores only)
+# Validate provider name (alphanumeric, hyphens, underscores only, max 64 chars)
 if [ -n "$PROVIDER" ]; then
-  if ! [[ "$PROVIDER" =~ ^[a-zA-Z0-9_-]+$ ]]; then
-    echo "Error: Invalid provider name. Only alphanumeric characters, hyphens, and underscores allowed." >&2
+  if ! [[ "$PROVIDER" =~ ^[a-zA-Z0-9_-]{1,64}$ ]]; then
+    echo "Error: Invalid provider name. Only alphanumeric characters, hyphens, and underscores allowed (max 64 chars)." >&2
     exit 1
   fi
 fi
 
 # Check dependencies
-if ! command -v terraform &> /dev/null; then
-  echo "Error: terraform CLI not found. Install from https://www.terraform.io/downloads" >&2
-  exit 1
-fi
-
 if ! command -v jq &> /dev/null; then
   echo "Error: jq not found. Install from https://stedolan.github.io/jq/download/" >&2
   exit 1
 fi
 
-# Check for Terraform configuration
-TF_FILES=$(ls *.tf 2>/dev/null | wc -l | tr -d ' ')
-if [ "$TF_FILES" -eq 0 ] && [ ! -f ".terraform.lock.hcl" ]; then
-  echo "Error: No Terraform configuration found." >&2
-  echo "Please create a providers.tf file with the provider configuration." >&2
-  echo "" >&2
-  echo "Example for AWS:" >&2
-  echo "  terraform {" >&2
-  echo "    required_providers {" >&2
-  echo "      aws = {" >&2
-  echo "        source = \"hashicorp/aws\"" >&2
-  echo "      }" >&2
-  echo "    }" >&2
-  echo "  }" >&2
+# Verify terraform is initialized
+if [ ! -d ".terraform" ]; then
+  echo "Error: Terraform not initialized. Run 'terraform init' first." >&2
   exit 1
 fi
 
@@ -62,9 +49,7 @@ case "$TYPE" in
   functions) SCHEMA_KEY="functions" ;;
 esac
 
-terraform init -upgrade > /dev/null 2>&1
-
-# Capture schema output securely
+# Read schema (read-only operation)
 SCHEMA_JSON=$(terraform providers schema -json)
 
 if [ -n "$PROVIDER" ]; then

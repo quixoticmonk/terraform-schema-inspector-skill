@@ -5,7 +5,7 @@ license: MIT
 compatibility: Requires Terraform CLI and jq
 metadata:
   author: quixoticmonk
-  version: "0.2.0"
+  version: "0.3.0"
 ---
 
 # Terraform Schema Inspector
@@ -20,20 +20,18 @@ Identify which capabilities a Terraform provider supports:
 
 ## Workflow
 
-**CRITICAL: Always use the `scripts/check.sh` script - never manually run terraform commands.**
-
 When a user asks about provider capabilities:
 
 1. **Prepare working directory**
-   - Create a temporary directory (e.g., `/tmp/tf-inspect-$$`)
+   - Create a temporary directory: `/tmp/tf-inspect-$$`
    - Change to that directory
 
 2. **Determine provider source**
-   - Use `get_latest_provider_version` tool to find the correct namespace and version
-   - Common namespaces: `hashicorp` (aws, google, azurerm), `integrations` (github), `oracle` (oci), etc.
+   - Use `get_latest_provider_version` tool to find namespace and version
+   - Common namespaces: `hashicorp` (aws, google, azurerm), `integrations` (github), `oracle` (oci)
 
 3. **Create provider configuration**
-   - Create a minimal `main.tf` file with the provider source from step 2:
+   - Create `main.tf` with provider source:
      ```hcl
      terraform {
        required_providers {
@@ -46,39 +44,45 @@ When a user asks about provider capabilities:
      
      provider "<provider>" {}
      ```
-   - Example for AWS: `source = "hashicorp/aws"`
-   - Example for GitHub: `source = "integrations/github"`
 
-4. **Run the inspection script**
+4. **Initialize Terraform**
+   - Run `terraform init -upgrade` using `execute_bash`
+   - This downloads provider binaries from the registry
+   - User can see what's being downloaded
+
+5. **Run inspection script**
    ```bash
    /path/to/skill/scripts/check.sh <capability_type> <provider_name>
    ```
    
-   The script will:
-   - Validate inputs and check dependencies
-   - Run `terraform init` automatically
-   - Extract the schema using `terraform providers schema -json`
-   - Filter and format the output as JSON
+   The script:
+   - Validates inputs
+   - Reads existing schema from initialized providers
+   - Filters and formats output as JSON
 
-5. **Present results**
-   - Display the JSON output to the user
-   - Interpret empty arrays as "no capabilities of this type"
+6. **Present results**
+   - Display JSON output
+   - Empty arrays mean no capabilities of that type
 
-6. **Clean up**
-   - Remove the temporary directory and all contents
-   - Use `rm -rf /tmp/tf-inspect-*` or similar
+7. **Clean up**
+   - Remove temporary directory: `rm -rf /tmp/tf-inspect-*`
 
 ## Security
 
-The script implements security hardening to prevent command injection:
+**Agent-Managed Operations:**
+- Provider configuration creation (agent creates main.tf)
+- Terraform initialization (agent runs `terraform init`)
+- Provider binary downloads (visible to user during init)
 
-- **Input validation**: Provider names restricted to alphanumeric, hyphens, and underscores
-- **Safe string handling**: All provider operations use jq's `--arg` to prevent injection
+**Script Operations (Read-Only):**
+- Input validation: Provider names restricted to `^[a-zA-Z0-9_-]{1,64}$`
+- Schema reading: Queries existing `.terraform/` directory
+- Safe string handling: Uses jq's `--arg` to prevent injection
 
-**Security considerations:**
-- Only run on trusted Terraform configurations
-- Review `.tf` files before running `terraform init`
-- Provider binaries are downloaded from configured registries during `terraform init`
+**User Visibility:**
+- All provider downloads happen via agent's `terraform init` command
+- User sees what's being downloaded before script execution
+- Script only reads existing schema data
 
 ## Capability Types
 
@@ -139,8 +143,7 @@ Returns JSON mapping providers to their supported capabilities:
 
 ## Notes
 
-- **Always use the `check.sh` script** - it handles initialization, validation, and cleanup automatically
-- The script requires a Terraform configuration file in the working directory
-- Work in a temporary directory to avoid polluting the user's workspace
-- Provider schemas are fetched during `terraform init` (handled by the script)
-- Empty arrays in output mean the provider has no capabilities of that type
+- Agent handles provider configuration and initialization
+- Script operates in read-only mode on existing schema
+- Work in temporary directories to avoid workspace pollution
+- Empty arrays mean provider has no capabilities of that type
